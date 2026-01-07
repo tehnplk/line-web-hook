@@ -57,7 +57,10 @@ export const getYearOfHorseMessage = (): messagingApi.FlexMessage => ({
   },
 });
 
-export const getBookingMessage = (url: string): messagingApi.FlexMessage => ({
+export const getBookingMessage = (
+  url: string,
+  displayName?: string
+): messagingApi.FlexMessage => ({
   type: "flex",
   altText: "จองคิว - กดปุ่มด้านล่างเพื่อจองคิว",
   contents: {
@@ -73,6 +76,19 @@ export const getBookingMessage = (url: string): messagingApi.FlexMessage => ({
           size: "xl",
           align: "center",
         },
+        ...(displayName
+          ? [
+              {
+                type: "text" as const,
+                text: `คุณ ${displayName}`,
+                size: "sm" as const,
+                color: "#111111",
+                align: "center" as const,
+                margin: "sm" as const,
+                wrap: true,
+              },
+            ]
+          : []),
         {
           type: "text",
           text: "กรุณากดปุ่มด้านล่างเพื่อจองคิวของคุณ",
@@ -102,7 +118,10 @@ export const getBookingMessage = (url: string): messagingApi.FlexMessage => ({
   },
 });
 
-export const getHistoryMessage = (url: string): messagingApi.FlexMessage => ({
+export const getHistoryMessage = (
+  url: string,
+  displayName?: string
+): messagingApi.FlexMessage => ({
   type: "flex",
   altText: "ประวัติการจอง - กดปุ่มด้านล่างเพื่อดูประวัติ",
   contents: {
@@ -118,6 +137,19 @@ export const getHistoryMessage = (url: string): messagingApi.FlexMessage => ({
           size: "xl",
           align: "center",
         },
+        ...(displayName
+          ? [
+              {
+                type: "text" as const,
+                text: `คุณ ${displayName}`,
+                size: "sm" as const,
+                color: "#111111",
+                align: "center" as const,
+                margin: "sm" as const,
+                wrap: true,
+              },
+            ]
+          : []),
         {
           type: "text",
           text: "กรุณากดปุ่มด้านล่างเพื่อดูประวัติการจองของคุณ",
@@ -162,4 +194,12 @@ export const getFaqMessage = (url: string): messagingApi.TemplateMessage => ({
       },
     ],
   },
+});
+
+export const getLocationMessage = (): messagingApi.LocationMessage => ({
+  type: "location",
+  title: "สำนักงานสาธารณสุขจังหวัดพิษณุโลก",
+  address: "ถ.วังจันทน์ ต.ในเมือง อ.เมือง จ.พิษณุโลก 65000",
+  latitude: 16.824683,
+  longitude: 100.260506,
 });

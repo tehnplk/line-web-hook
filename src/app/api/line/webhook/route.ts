@@ -5,7 +5,8 @@ import {
   getYearOfHorseMessage, 
   getBookingMessage, 
   getHistoryMessage, 
-  getFaqMessage 
+  getFaqMessage,
+  getLocationMessage
 } from "./messages";
 
 
@@ -96,6 +97,20 @@ async function handleEvent(
     return null;
   }
 
+  const userId = event.source.userId || "";
+
+  let displayNamePromise: Promise<string> | null = null;
+  const getDisplayName = async (): Promise<string> => {
+    if (!userId) return "";
+    if (!displayNamePromise) {
+      displayNamePromise = client
+        .getProfile(userId)
+        .then((profile) => profile.displayName || "")
+        .catch(() => "");
+    }
+    return displayNamePromise;
+  };
+
   // user พิมพ์ hi -> Happy New Year 2026 (Year of the Horse)
   if (userMessage.toLowerCase() === "hi") {
     const hnyFlex = getYearOfHorseMessage();
@@ -108,13 +123,13 @@ async function handleEvent(
 
   // user ถาม จองคิว
   if (userMessage.includes("จองคิว")) { 
-    // ดึง LINE user ID จาก event source
-    const userId = event.source.userId || "";
     // สร้าง URL พร้อมแนบ LINE ID
     const bookingUrlWithLineId = `${BOOKING_URL}?userid=${userId}`;
 
+    const displayName = await getDisplayName();
+
     // ตอบกลับด้วย Flex Message พร้อมปุ่มสีเขียว
-    const bookingFlex = getBookingMessage(bookingUrlWithLineId);
+    const bookingFlex = getBookingMessage(bookingUrlWithLineId, displayName);
 
     return client.replyMessage({
       replyToken,
@@ -124,56 +139,13 @@ async function handleEvent(
 
   // user ถาม ประวัติการจอง
   if (userMessage.includes("ประวัติการจอง")) {
-    // ดึง LINE user ID จาก event source
-    const userId = event.source.userId || "";
     // สร้าง URL พร้อมแนบ LINE ID
     const historyUrlWithLineId = `${HISTORY_URL}?userid=${userId}`;
 
+    const displayName = await getDisplayName();
+
     // ตอบกลับด้วย Flex Message พร้อมปุ่มสีส้ม
-    const historyFlex: messagingApi.FlexMessage = {
-      type: "flex",
-      altText: "ประวัติการจอง - กดปุ่มด้านล่างเพื่อดูประวัติ",
-      contents: {
-        type: "bubble",
-        body: {
-          type: "box",
-          layout: "vertical",
-          contents: [
-            {
-              type: "text",
-              text: "📋 ประวัติการจอง",
-              weight: "bold",
-              size: "xl",
-              align: "center",
-            },
-            {
-              type: "text",
-              text: "กรุณากดปุ่มด้านล่างเพื่อดูประวัติการจองของคุณ",
-              size: "sm",
-              color: "#666666",
-              align: "center",
-              margin: "md",
-            },
-          ],
-        },
-        footer: {
-          type: "box",
-          layout: "vertical",
-          contents: [
-            {
-              type: "button",
-              action: {
-                type: "uri",
-                label: "📜 ดูประวัติการจอง",
-                uri: historyUrlWithLineId,
-              },
-              style: "primary",
-              color: "#F97316", // สีส้ม
-            },
-          ],
-        },
-      },
-    };
+    const historyFlex = getHistoryMessage(historyUrlWithLineId, displayName);
 
     return client.replyMessage({
       replyToken,
@@ -183,8 +155,6 @@ async function handleEvent(
 
   // user ถาม คำถามพบบ่อย
   if (userMessage.includes("คำถามพบบ่อย")) {
-    // ดึง LINE user ID จาก event source
-    const userId = event.source.userId || "";
     // สร้าง URL พร้อมแนบ LINE ID
     const faqUrlWithLineId = `${FAQ_URL}?userid=${userId}`;
 
@@ -197,10 +167,18 @@ async function handleEvent(
     });
   }
 
+  // user ถาม ตรงไหน
+  if (userMessage.includes("ตรงไหน")) {
+    const locationMsg = getLocationMessage();
+    return client.replyMessage({
+      replyToken,
+      messages: [locationMsg],
+    });
+  }
+
   // ตอบกลับข้อความอื่นๆ
   // บันทึก log ลงฐานข้อมูล
   try {
-    const userId = event.source.userId || "";
     await prisma.lineLog.create({
       data: {
         lineId: userId,
