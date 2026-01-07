@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { messagingApi, WebhookEvent, validateSignature } from "@line/bot-sdk";
 import prisma from "@/lib/prisma";
+import { 
+  getYearOfHorseMessage, 
+  getBookingMessage, 
+  getHistoryMessage, 
+  getFaqMessage 
+} from "./messages";
 
 
 /* เพิ่มที่ .env */
@@ -90,6 +96,16 @@ async function handleEvent(
     return null;
   }
 
+  // user พิมพ์ hi -> Happy New Year 2026 (Year of the Horse)
+  if (userMessage.toLowerCase() === "hi") {
+    const hnyFlex = getYearOfHorseMessage();
+
+    return client.replyMessage({
+      replyToken,
+      messages: [hnyFlex],
+    });
+  }
+
   // user ถาม จองคิว
   if (userMessage.includes("จองคิว")) { 
     // ดึง LINE user ID จาก event source
@@ -98,50 +114,7 @@ async function handleEvent(
     const bookingUrlWithLineId = `${BOOKING_URL}?userid=${userId}`;
 
     // ตอบกลับด้วย Flex Message พร้อมปุ่มสีเขียว
-    const bookingFlex: messagingApi.FlexMessage = {
-      type: "flex",
-      altText: "จองคิว - กดปุ่มด้านล่างเพื่อจองคิว",
-      contents: {
-        type: "bubble",
-        body: {
-          type: "box",
-          layout: "vertical",
-          contents: [
-            {
-              type: "text",
-              text: "🗓️ จองคิว",
-              weight: "bold",
-              size: "xl",
-              align: "center",
-            },
-            {
-              type: "text",
-              text: "กรุณากดปุ่มด้านล่างเพื่อจองคิวของคุณ",
-              size: "sm",
-              color: "#666666",
-              align: "center",
-              margin: "md",
-            },
-          ],
-        },
-        footer: {
-          type: "box",
-          layout: "vertical",
-          contents: [
-            {
-              type: "button",
-              action: {
-                type: "uri",
-                label: "📅 จองคิวเลย",
-                uri: bookingUrlWithLineId,
-              },
-              style: "primary",
-              color: "#22C55E", // สีเขียว
-            },
-          ],
-        },
-      },
-    };
+    const bookingFlex = getBookingMessage(bookingUrlWithLineId);
 
     return client.replyMessage({
       replyToken,
@@ -216,22 +189,7 @@ async function handleEvent(
     const faqUrlWithLineId = `${FAQ_URL}?userid=${userId}`;
 
     // ตอบกลับด้วย Buttons Template พร้อมปุ่มลิงค์ FAQ
-    const faqTemplate: messagingApi.TemplateMessage = {
-      type: "template",
-      altText: "คำถามพบบ่อย - กดปุ่มด้านล่างเพื่อดูคำถามที่พบบ่อย",
-      template: {
-        type: "buttons",
-        title: "❓ คำถามพบบ่อย",
-        text: "กรุณากดปุ่มด้านล่างเพื่อดูคำตอบที่พบบ่อย",
-        actions: [
-          {
-            type: "uri",
-            label: "📖 ดูคำถามพบบ่อย",
-            uri: faqUrlWithLineId,
-          },
-        ],
-      },
-    };
+    const faqTemplate = getFaqMessage(faqUrlWithLineId);
 
     return client.replyMessage({
       replyToken,
