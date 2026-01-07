@@ -43,8 +43,7 @@ const FAQ_URL = process.env.URL_FAQ || "";
 async function handleEvent(
   event: WebhookEvent
 ): Promise<messagingApi.ReplyMessageResponse | null> {
-  console.log(">>> Incoming Webhook Event:", JSON.stringify(event, null, 2));
-
+  
   // Handle follow (เพิ่มเพื่อน)
   if (event.type === "follow") {
     try {
@@ -86,12 +85,8 @@ async function handleEvent(
 
   const userMessage = event.message.text;
   const replyToken = event.replyToken;
-
-  console.log("Processing message:", userMessage);
-  console.log("ReplyToken:", replyToken);
   
   if (!replyToken) {
-    console.error("ReplyToken is missing/empty for event:", JSON.stringify(event));
     return null;
   }
 
