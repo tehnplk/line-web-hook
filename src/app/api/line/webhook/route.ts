@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { messagingApi, WebhookEvent, validateSignature } from "@line/bot-sdk";
-import prisma from "@/lib/prisma";
-import { 
-  getYearOfHorseMessage, 
-  getBookingMessage, 
-  getHistoryMessage, 
-  getFaqMessage,
-  getLocationMessage
-} from "./messages";
+import { createHandleEvent } from "./handleEvent";
 
 
 /* เพิ่มที่ .env */
@@ -47,159 +40,11 @@ const HISTORY_URL = process.env.URL_HISTORY || "";
 const FAQ_URL = process.env.URL_FAQ || "";
 
 // จัดการ webhook events
-async function handleEvent(
-  event: WebhookEvent
-): Promise<messagingApi.ReplyMessageResponse | null> {
-  
-  // Handle follow (เพิ่มเพื่อน)
-  if (event.type === "follow") {
-    try {
-      const userId = event.source.userId || "";
-      await prisma.lineLog.create({
-        data: {
-          lineId: userId,
-          message: "ติดตาม (Add Friend)",
-          createdAt: new Date(),
-        },
-      });
-    } catch (error) {
-      console.error("Error saving follow log:", error);
-    }
-    return null;
-  }
-
-  // Handle unfollow (เลิกติดตาม/บล็อก)
-  if (event.type === "unfollow") {
-    try {
-      const userId = event.source.userId || "";
-      await prisma.lineLog.create({
-        data: {
-          lineId: userId,
-          message: "เลิกติดตาม (Block/Unfriend)",
-          createdAt: new Date(),
-        },
-      });
-    } catch (error) {
-      console.error("Error saving unfollow log:", error);
-    }
-    return null;
-  }
-
-  // รับเฉพาะ message event ที่เป็น text เท่านั้น
-  if (event.type !== "message" || event.message.type !== "text") {
-    return null;
-  }
-
-  const userMessage = event.message.text;
-  const replyToken = event.replyToken;
-  
-  if (!replyToken) {
-    return null;
-  }
-
-  const userId = event.source.userId || "";
-
-  let displayNamePromise: Promise<string> | null = null;
-  const getDisplayName = async (): Promise<string> => {
-    if (!userId) return "";
-    if (!displayNamePromise) {
-      displayNamePromise = client
-        .getProfile(userId)
-        .then((profile) => profile.displayName || "")
-        .catch(() => "");
-    }
-    return displayNamePromise;
-  };
-
-  // user พิมพ์ hi -> Happy New Year 2026 (Year of the Horse)
-  if (userMessage.toLowerCase() === "hi") {
-    const hnyFlex = getYearOfHorseMessage();
-
-    return client.replyMessage({
-      replyToken,
-      messages: [hnyFlex],
-    });
-  }
-
-  // user ถาม จองคิว
-  if (userMessage.includes("จองคิว")) { 
-    // สร้าง URL พร้อมแนบ LINE ID
-    const bookingUrlWithLineId = `${BOOKING_URL}?userid=${userId}`;
-
-    const displayName = await getDisplayName();
-
-    // ตอบกลับด้วย Flex Message พร้อมปุ่มสีเขียว
-    const bookingFlex = getBookingMessage(bookingUrlWithLineId, displayName);
-
-    return client.replyMessage({
-      replyToken,
-      messages: [bookingFlex],
-    });
-  }
-
-  // user ถาม ประวัติการจอง
-  if (userMessage.includes("ประวัติการจอง")) {
-    // สร้าง URL พร้อมแนบ LINE ID
-    const historyUrlWithLineId = `${HISTORY_URL}?userid=${userId}`;
-
-    const displayName = await getDisplayName();
-
-    // ตอบกลับด้วย Flex Message พร้อมปุ่มสีส้ม
-    const historyFlex = getHistoryMessage(historyUrlWithLineId, displayName);
-
-    return client.replyMessage({
-      replyToken,
-      messages: [historyFlex],
-    });
-  }
-
-  // user ถาม คำถามพบบ่อย
-  if (userMessage.includes("คำถามพบบ่อย")) {
-    // สร้าง URL พร้อมแนบ LINE ID
-    const faqUrlWithLineId = `${FAQ_URL}?userid=${userId}`;
-
-    // ตอบกลับด้วย Buttons Template พร้อมปุ่มลิงค์ FAQ
-    const faqTemplate = getFaqMessage(faqUrlWithLineId);
-
-    return client.replyMessage({
-      replyToken,
-      messages: [faqTemplate],
-    });
-  }
-
-  // user ถาม ตรงไหน
-  if (userMessage.includes("ตรงไหน")) {
-    const locationMsg = getLocationMessage();
-    return client.replyMessage({
-      replyToken,
-      messages: [locationMsg],
-    });
-  }
-
-  // ตอบกลับข้อความอื่นๆ
-  // บันทึก log ลงฐานข้อมูล
-  try {
-    await prisma.lineLog.create({
-      data: {
-        lineId: userId,
-        message: userMessage,
-        createdAt: new Date(),
-      },
-    });
-  } catch (error) {
-    console.error("Error saving line log:", error);
-  }
-
-  return client.replyMessage({
-    replyToken,
-    messages: [
-      {
-        type: "text",
-        text: "🌈✨ สวัสดีค่ะ! 😊🌸",
-      },
-    ],
-  });
-}
+const handleEvent = createHandleEvent(client, {
+  BOOKING_URL,
+  HISTORY_URL,
+  FAQ_URL,
+});
 
 // POST handler สำหรับ LINE webhook
 export async function POST(request: NextRequest) {
@@ -218,6 +63,8 @@ export async function POST(request: NextRequest) {
     const webhookBody = JSON.parse(body) as { events: WebhookEvent[] };
 
     const events = webhookBody.events;
+
+    console.log(">>> Incoming Webhook Events:", JSON.stringify(events, null, 2));
 
     // ประมวลผล events ทั้งหมด
     const results = await Promise.all(events.map(handleEvent));
